@@ -37,7 +37,7 @@ func JobStreet(repo repository.Repository) {
 						fmt.Println(errExtract)
 					}
 				} else {
-					fmt.Printf("Exists %s", url)
+					fmt.Printf("Exists %s\n", url)
 				}
 			} else {
 				fmt.Println("Extract all url jobstreet")

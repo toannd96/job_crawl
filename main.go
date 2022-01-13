@@ -6,6 +6,7 @@ import (
 	"go-crawl/handle"
 	repoimpl "go-crawl/repository/repo_impl"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -30,4 +31,24 @@ func main() {
 	}()
 
 	wg.Wait()
+
+	// Schedule crawl
+	go schedule(24*time.Hour, handle, 1)
+	schedule(24*time.Hour, handle, 2)
+}
+
+func schedule(timeSchedule time.Duration, handle handle.Handle, inndex int) {
+	ticker := time.NewTicker(timeSchedule)
+	func() {
+		for {
+			switch inndex {
+			case 1:
+				<-ticker.C
+				feeds.Masothue(handle.Repo)
+			case 2:
+				<-ticker.C
+				feeds.JobStreet(handle.Repo)
+			}
+		}
+	}()
 }
