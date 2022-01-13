@@ -7,6 +7,7 @@ import (
 type Company struct {
 	ID       bson.ObjectId     `bson:"_id,omitempty"`
 	Name     string            `bson:"name,omitempty"`
+	Url      string            `bson:"url,omitempty"`
 	TaxInfo  map[string]string `bson:"tax_info,omitempty"`
 	Business []Business        `bson:"business,omitempty"`
 }

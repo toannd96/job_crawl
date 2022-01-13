@@ -33,10 +33,18 @@ func Masothue(repo repository.Repository) {
 		for {
 			url, more := <-pipe
 			if more {
-				fmt.Println("Extract", url)
+				count, err := repo.FindByUrl(url, "company_masothue")
+				if err != nil {
+					fmt.Println(err)
+				}
+				if count == 0 {
+					fmt.Println("Extract", url)
 
-				if errExtract := extractCompanyInfo(url, repo); errExtract != nil {
-					fmt.Println(errExtract)
+					if errExtract := extractCompanyInfo(url, repo); errExtract != nil {
+						fmt.Println(errExtract)
+					}
+				} else {
+					fmt.Printf("Exists %s\n", url)
 				}
 			} else {
 				fmt.Println("Extract all url")
@@ -91,13 +99,14 @@ func getUrl(pipe chan<- string, wg *sync.WaitGroup) error {
 
 func extractCompanyInfo(url string, repo repository.Repository) error {
 	company := NewCompany()
+	company.Url = url
 
 	doc, err := helper.GetNewDocument(url)
 	if err != nil {
 		return err
 	}
 
-	// extract tax info
+	// Extract tax info
 	doc.Find("table.table-taxinfo").Each(func(index int, tableTaxHtml *goquery.Selection) {
 		tableTaxHtml.Find("th span.copy").Each(func(indexTr int, rowTaxHtml *goquery.Selection) {
 			company.Name = rowTaxHtml.Text()
@@ -116,7 +125,7 @@ func extractCompanyInfo(url string, repo repository.Repository) error {
 
 	})
 
-	// extract type business
+	// Extract type business
 	doc.Find("table.table").Each(func(index int, tableBusinessHtml *goquery.Selection) {
 		tableBusinessHtml.Find("tbody tr").Each(func(indexTr int, rowBusinessHtml *goquery.Selection) {
 			row := make([]string, 0)
@@ -128,13 +137,14 @@ func extractCompanyInfo(url string, repo repository.Repository) error {
 				Carees: row[1],
 			}
 			company.Business = append(company.Business, business)
-
-			err := repo.Save(company, "company_masothue")
-			if err != nil {
-				fmt.Println(err)
-			}
 		})
 	})
+
+	// Save in to mongodb
+	errSave := repo.Save(company, "company_masothue")
+	if errSave != nil {
+		fmt.Println(errSave)
+	}
 
 	return nil
 }

@@ -28,8 +28,16 @@ func JobStreet(repo repository.Repository) {
 		for {
 			url, more := <-pipe
 			if more {
-				if errExtract := extractInfoJob(url, repo); errExtract != nil {
-					fmt.Println(errExtract)
+				count, err := repo.FindByUrl(url, "recruitment_jobstreet")
+				if err != nil {
+					fmt.Println(err)
+				}
+				if count == 0 {
+					if errExtract := extractInfoJob(url, repo); errExtract != nil {
+						fmt.Println(errExtract)
+					}
+				} else {
+					fmt.Printf("Exists %s", url)
 				}
 			} else {
 				fmt.Println("Extract all url")
@@ -84,19 +92,20 @@ func extractInfoJob(url string, repo repository.Repository) error {
 				job.Descript = e.Text
 			})
 		}
-
-		err := repo.Save(job, "recruitment_jobstreet")
-		if err != nil {
-			fmt.Println(err)
-		}
 	})
+
+	// Save in to mongodb
+	errSave := repo.Save(job, "recruitment_jobstreet")
+	if errSave != nil {
+		fmt.Println(errSave)
+	}
 
 	c.Visit(url)
 
 	return nil
 }
 
-// getUrlByProvince get all search url by province
+// Get all search url by province
 func getUrlByProvince(pipe chan<- string, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
@@ -126,7 +135,7 @@ func getUrlByProvince(pipe chan<- string, wg *sync.WaitGroup) error {
 	return nil
 }
 
-// getUrlByCategory get all search url by category
+// Get all search url by category
 func getUrlByCategory(pipe chan<- string, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	doc, err := helper.GetNewDocument(webPage)
@@ -166,7 +175,7 @@ func getUrlByCategory(pipe chan<- string, wg *sync.WaitGroup) error {
 	return nil
 }
 
-// getTotalPage get total page count of each url
+// get total page count of each url
 func getTotalPage(url string) (int, error) {
 	var totalPage int
 	doc, err := helper.GetNewDocument(url)
