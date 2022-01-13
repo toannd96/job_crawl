@@ -40,7 +40,7 @@ func JobStreet(repo repository.Repository) {
 					fmt.Printf("Exists %s", url)
 				}
 			} else {
-				fmt.Println("Extract all url")
+				fmt.Println("Extract all url jobstreet")
 				done <- true
 				return
 			}
@@ -92,13 +92,13 @@ func extractInfoJob(url string, repo repository.Repository) error {
 				job.Descript = e.Text
 			})
 		}
-	})
 
-	// Save in to mongodb
-	errSave := repo.Save(job, "recruitment_jobstreet")
-	if errSave != nil {
-		fmt.Println(errSave)
-	}
+		// Save in to mongodb
+		errSave := repo.Save(job, "recruitment_jobstreet")
+		if errSave != nil {
+			fmt.Println(errSave)
+		}
+	})
 
 	c.Visit(url)
 

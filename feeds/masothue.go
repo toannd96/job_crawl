@@ -47,7 +47,7 @@ func Masothue(repo repository.Repository) {
 					fmt.Printf("Exists %s\n", url)
 				}
 			} else {
-				fmt.Println("Extract all url")
+				fmt.Println("Extract all url masothue")
 				done <- true
 				return
 			}
