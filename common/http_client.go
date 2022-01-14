@@ -1,10 +1,11 @@
-package helper
+package common
 
 import (
 	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/cenkalti/backoff"
 )
 
@@ -25,7 +26,7 @@ func get(url string) (*http.Response, error) {
 }
 
 // Get http request with backoff retry
-func Get(url string) (*http.Response, error) {
+func getWithRetry(url string) (*http.Response, error) {
 	var err error
 	var resp *http.Response
 	bo := backoff.NewExponentialBackOff()
@@ -49,4 +50,20 @@ func Get(url string) (*http.Response, error) {
 		return nil, err
 	}
 	return resp, nil
+}
+
+// get html document from url
+func GetNewDocument(url string) (*goquery.Document, error) {
+	resp, err := getWithRetry(url)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return doc, nil
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"go-crawl/helper"
+	"go-crawl/common"
 	"go-crawl/models"
 	"go-crawl/repository"
 
@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	basePath     = "https://www.masothue.com"
-	companyPath  = "/tra-cuu-ma-so-thue-theo-loai-hinh-doanh-nghiep"
-	businessPath = "/tra-cuu-ma-so-thue-theo-nganh-nghe"
+	masothueBasePath     = "https://www.masothue.com"
+	masothueBusinessPath = "/tra-cuu-ma-so-thue-theo-nganh-nghe"
 )
 
 func NewCompany() *models.Company {
@@ -40,7 +39,7 @@ func Masothue(repo repository.Repository) {
 				if count == 0 {
 					fmt.Println("Extract", url)
 
-					if errExtract := extractCompanyInfo(url, repo); errExtract != nil {
+					if errExtract := extractCompanyMasothue(url, repo); errExtract != nil {
 						fmt.Println(errExtract)
 					}
 				} else {
@@ -56,7 +55,7 @@ func Masothue(repo repository.Repository) {
 
 	wg.Add(1)
 
-	go getUrl(pipe, &wg)
+	go getUrlMasothue(pipe, &wg)
 
 	go func() {
 		wg.Wait()
@@ -65,12 +64,12 @@ func Masothue(repo repository.Repository) {
 	<-done
 }
 
-func getUrl(pipe chan<- string, wg *sync.WaitGroup) error {
+func getUrlMasothue(pipe chan<- string, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
 	for page := 1; page <= 20; page++ {
-		url := fmt.Sprintf("%s%s?page=%d", basePath, businessPath, page)
-		doc, err := helper.GetNewDocument(url)
+		url := fmt.Sprintf("%s%s?page=%d", masothueBasePath, masothueBusinessPath, page)
+		doc, err := common.GetNewDocument(url)
 		if err != nil {
 			return err
 		}
@@ -80,12 +79,12 @@ func getUrl(pipe chan<- string, wg *sync.WaitGroup) error {
 				rowHtml.Find("td:last-child a[href]").Each(func(ndexTd int, tableCell *goquery.Selection) {
 					href, _ := tableCell.Attr("href")
 					for page := 1; page <= 10; page++ {
-						urlTypeCompany := fmt.Sprintf("%s%s?page=%d", basePath, href, page)
+						urlTypeCompany := fmt.Sprintf("%s%s?page=%d", masothueBasePath, href, page)
 
-						docChild, _ := helper.GetNewDocument(urlTypeCompany)
+						docChild, _ := common.GetNewDocument(urlTypeCompany)
 						docChild.Find("div.tax-listing h3 a[href]").Each(func(index int, info *goquery.Selection) {
 							href, _ := info.Attr("href")
-							urlInfoCompany := fmt.Sprintf("%s%s", basePath, href)
+							urlInfoCompany := fmt.Sprintf("%s%s", masothueBasePath, href)
 							pipe <- urlInfoCompany
 						})
 					}
@@ -97,11 +96,11 @@ func getUrl(pipe chan<- string, wg *sync.WaitGroup) error {
 	return nil
 }
 
-func extractCompanyInfo(url string, repo repository.Repository) error {
+func extractCompanyMasothue(url string, repo repository.Repository) error {
 	company := NewCompany()
 	company.Url = url
 
-	doc, err := helper.GetNewDocument(url)
+	doc, err := common.GetNewDocument(url)
 	if err != nil {
 		return err
 	}

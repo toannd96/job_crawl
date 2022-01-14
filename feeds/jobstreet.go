@@ -3,7 +3,7 @@ package feeds
 import (
 	"fmt"
 
-	"go-crawl/helper"
+	"go-crawl/common"
 	"go-crawl/models"
 	"go-crawl/repository"
 
@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	webPage = "https://www.jobstreet.vn/t%C3%ACmvi%E1%BB%87c"
+	jobStreetBasePath   = "https://www.jobstreet.vn"
+	jobStreetCareerPath = "/t%C3%ACmvi%E1%BB%87c"
 )
 
 func JobStreet(repo repository.Repository) {
@@ -33,7 +34,7 @@ func JobStreet(repo repository.Repository) {
 					fmt.Println(err)
 				}
 				if count == 0 {
-					if errExtract := extractInfoJob(url, repo); errExtract != nil {
+					if errExtract := extractRecruitmentJobStreet(url, repo); errExtract != nil {
 						fmt.Println(errExtract)
 					}
 				} else {
@@ -59,14 +60,14 @@ func JobStreet(repo repository.Repository) {
 	<-done
 }
 
-func extractInfoJob(url string, repo repository.Repository) error {
-	var job models.Job
+func extractRecruitmentJobStreet(url string, repo repository.Repository) error {
+	var recruitment models.Recruitment
 
 	c := colly.NewCollector()
 	c.SetRequestTimeout(120 * time.Second)
 
 	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL)
+		fmt.Println("Extract", r.URL)
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
@@ -74,27 +75,28 @@ func extractInfoJob(url string, repo repository.Repository) error {
 	})
 
 	c.OnHTML(".jobresults .job-card", func(e *colly.HTMLElement) {
-		job.Url = "https://www.jobstreet.vn" + e.ChildAttr("h3.job-title > a", "href")
-		job.Title = e.ChildText("h3.job-title > a")
-		job.Company = e.ChildText("span.job-company")
-		job.Location = e.ChildText("span.job-location")
+		urlChild := fmt.Sprintf("%s%s", jobStreetBasePath, e.ChildAttr("h3.job-title > a", "href"))
+		recruitment.Url = common.RemoveCharacterInString(urlChild, "?")
+		recruitment.Title = e.ChildText("h3.job-title > a")
+		recruitment.Company = e.ChildText("span.job-company")
+		recruitment.Location = e.ChildText("span.job-location")
 
-		c.Visit(e.Request.AbsoluteURL(job.Url))
+		c.Visit(e.Request.AbsoluteURL(recruitment.Url))
 		c.OnHTML("div[class=heading-xsmall]", func(e *colly.HTMLElement) {
-			job.Site = e.ChildText("span.site")
-			job.CreatedAt = e.ChildText("span.listed-date")
+			recruitment.Site = e.ChildText("span.site")
+			recruitment.CreatedAt = e.ChildText("span.listed-date")
 		})
 
-		if job.Site == "TopCV" {
-			job.Descript = ""
+		if recruitment.Site == "TopCV" {
+			recruitment.Descript = ""
 		} else {
 			c.OnHTML("div[class=-desktop-no-padding-top]", func(e *colly.HTMLElement) {
-				job.Descript = e.Text
+				recruitment.Descript = e.Text
 			})
 		}
 
 		// Save in to mongodb
-		errSave := repo.Save(job, "recruitment_jobstreet")
+		errSave := repo.Save(recruitment, "recruitment_jobstreet")
 		if errSave != nil {
 			fmt.Println(errSave)
 		}
@@ -109,7 +111,8 @@ func extractInfoJob(url string, repo repository.Repository) error {
 func getUrlByProvince(pipe chan<- string, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
-	doc, err := helper.GetNewDocument(webPage)
+	url := fmt.Sprintf("%s%s", jobStreetBasePath, jobStreetCareerPath)
+	doc, err := common.GetNewDocument(url)
 	if err != nil {
 		return err
 	}
@@ -117,10 +120,10 @@ func getUrlByProvince(pipe chan<- string, wg *sync.WaitGroup) error {
 	// Get all search urls by province
 	doc.Find("div[id=browse-locations] a[href]").Each(func(index int, province *goquery.Selection) {
 		href, _ := province.Attr("href")
-		urlProvince := fmt.Sprintf("https://www.jobstreet.vn%s", href)
+		urlProvince := fmt.Sprintf("%s%s", jobStreetBasePath, href)
 
 		// Get total page count of each url by province
-		totalPage, err := getTotalPage(urlProvince)
+		totalPage, err := getTotalPageJobStreet(urlProvince)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -138,7 +141,9 @@ func getUrlByProvince(pipe chan<- string, wg *sync.WaitGroup) error {
 // Get all search url by category
 func getUrlByCategory(pipe chan<- string, wg *sync.WaitGroup) error {
 	defer wg.Done()
-	doc, err := helper.GetNewDocument(webPage)
+
+	url := fmt.Sprintf("%s%s", jobStreetBasePath, jobStreetCareerPath)
+	doc, err := common.GetNewDocument(url)
 	if err != nil {
 		return err
 	}
@@ -146,9 +151,9 @@ func getUrlByCategory(pipe chan<- string, wg *sync.WaitGroup) error {
 	// Get all search urls by category
 	doc.Find("div[id=browse-categories] a[href]").Each(func(index int, category *goquery.Selection) {
 		href, _ := category.Attr("href")
-		urlCategory := fmt.Sprintf("https://www.jobstreet.vn%s", href)
+		urlCategory := fmt.Sprintf("%s%s", jobStreetBasePath, href)
 
-		docChild, err := helper.GetNewDocument(urlCategory)
+		docChild, err := common.GetNewDocument(urlCategory)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -156,10 +161,10 @@ func getUrlByCategory(pipe chan<- string, wg *sync.WaitGroup) error {
 		// Get all search urls by category child
 		docChild.Find("div[id=browse-keywords] a[href]").Each(func(index int, key *goquery.Selection) {
 			href, _ := key.Attr("href")
-			urlCategoryChild := fmt.Sprintf("https://www.jobstreet.vn%s", href)
+			urlCategoryChild := fmt.Sprintf("%s%s", jobStreetBasePath, href)
 
 			// Get total page count of each url by category child
-			totalPage, err := getTotalPage(urlCategoryChild)
+			totalPage, err := getTotalPageJobStreet(urlCategoryChild)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -176,16 +181,16 @@ func getUrlByCategory(pipe chan<- string, wg *sync.WaitGroup) error {
 }
 
 // get total page count of each url
-func getTotalPage(url string) (int, error) {
+func getTotalPageJobStreet(url string) (int, error) {
 	var totalPage int
-	doc, err := helper.GetNewDocument(url)
+	doc, err := common.GetNewDocument(url)
 	if err != nil {
 		return 0, err
 	}
 
-	pageStr := doc.Find("div.search-results-count strong:last-child").Text()
-	if pageStr != "" {
-		totalPage, err = strconv.Atoi(pageStr)
+	numberPageStr := doc.Find("div.search-results-count strong:last-child").Text()
+	if numberPageStr != "" {
+		totalPage, err = strconv.Atoi(numberPageStr)
 		if err != nil {
 			return 0, err
 		}

@@ -2,7 +2,7 @@ package models
 
 import "gopkg.in/mgo.v2/bson"
 
-type Job struct {
+type Recruitment struct {
 	ID        bson.ObjectId `bson:"_id,omitempty"`
 	Title     string        `bson:"title,omitempty"`
 	Company   string        `bson:"company,omitempty"`
