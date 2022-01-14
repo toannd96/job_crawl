@@ -34,7 +34,7 @@ func main() {
 
 	// Schedule crawl
 	go schedule(24*time.Hour, handle, 1)
-	schedule(24*time.Hour, handle, 2)
+	schedule(48*time.Hour, handle, 2)
 }
 
 func schedule(timeSchedule time.Duration, handle handle.Handle, inndex int) {
