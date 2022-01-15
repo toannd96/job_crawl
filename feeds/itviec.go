@@ -96,7 +96,7 @@ func getUrlItViec(pipe chan<- string, wg *sync.WaitGroup) error {
 		}
 		doc.Find("h3.title a[href]").Each(func(index int, content *goquery.Selection) {
 			href, _ := content.Attr("href")
-			urlRecruitment := fmt.Sprintf("%s%s", itViecBasePath, href)
+			urlRecruitment := common.RemoveCharacterInString(fmt.Sprintf("%s%s", itViecBasePath, href), "?")
 			pipe <- urlRecruitment
 		})
 	}
