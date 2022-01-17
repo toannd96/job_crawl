@@ -126,21 +126,20 @@ func getUrlItViec(pipe chan<- string, wg *sync.WaitGroup) error {
 
 	for _, url := range urls {
 		pipe <- url
+
+		// for page := 1; page <= 1; page++ {
+		// 	url := fmt.Sprintf("%s%s?page=%d", itViecBasePath, itViecJobsPath, page)
+		// 	doc, err := common.GetNewDocument(url)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	doc.Find("h3.title a[href]").Each(func(index int, content *goquery.Selection) {
+		// 		href, _ := content.Attr("href")
+		// 		urlRecruitment := common.RemoveCharacterInString(fmt.Sprintf("%s%s", itViecBasePath, href), "?")
+		// 		pipe <- urlRecruitment
+		// 	})
+		// }
 	}
-
-	// for page := 1; page <= 1; page++ {
-	// 	url := fmt.Sprintf("%s%s?page=%d", itViecBasePath, itViecJobsPath, page)
-	// 	doc, err := common.GetNewDocument(url)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	doc.Find("h3.title a[href]").Each(func(index int, content *goquery.Selection) {
-	// 		href, _ := content.Attr("href")
-	// 		urlRecruitment := common.RemoveCharacterInString(fmt.Sprintf("%s%s", itViecBasePath, href), "?")
-	// 		pipe <- urlRecruitment
-	// 	})
-	// }
-
 	return nil
 }
 
