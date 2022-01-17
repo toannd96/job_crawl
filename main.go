@@ -5,7 +5,6 @@ import (
 	"go-crawl/feeds"
 	"go-crawl/handle"
 	repoimpl "go-crawl/repository/repo_impl"
-	"sync"
 	"time"
 )
 
@@ -17,20 +16,22 @@ func main() {
 		Repo: repoimpl.NewRepo(mg),
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	// var wg sync.WaitGroup
+	// wg.Add(2)
 
-	go func() {
-		defer wg.Done()
-		feeds.Masothue(handle.Repo)
-	}()
+	// go func() {
+	// 	defer wg.Done()
+	// 	feeds.Masothue(handle.Repo)
+	// }()
 
-	go func() {
-		defer wg.Done()
-		feeds.JobStreet(handle.Repo)
-	}()
+	// go func() {
+	// 	defer wg.Done()
+	// 	feeds.JobStreet(handle.Repo)
+	// }()
 
-	wg.Wait()
+	// wg.Wait()
+
+	feeds.ItViec(handle.Repo)
 
 	// Schedule crawl
 	go schedule(24*time.Hour, handle, 1)

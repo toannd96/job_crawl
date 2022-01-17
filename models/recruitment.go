@@ -8,6 +8,7 @@ type Recruitment struct {
 	Company   string        `bson:"company,omitempty"`
 	Location  string        `bson:"location,omitempty"`
 	Descript  string        `bson:"descript,omitempty"`
+	Salary    string        `bson:"salary,omitempty"`
 	Url       string        `bson:"url,omitempty"`
 	Site      string        `bson:"site,omitempty"`
 	CreatedAt string        `bson:"created_at,omitempty"`
