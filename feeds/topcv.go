@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go-crawl/common"
 	"go-crawl/models"
+	"go-crawl/repository"
+	"strings"
 	"sync"
 
 	"github.com/PuerkitoBio/goquery"
@@ -14,7 +16,7 @@ const (
 	topcvJobsPath = "/tim-viec-lam-moi-nhat"
 )
 
-func TopCV() {
+func TopCV(repo repository.Repository) {
 	var urls []string
 
 	pipe := make(chan string)
@@ -24,14 +26,20 @@ func TopCV() {
 		for {
 			url, more := <-pipe
 			if more {
-
-				fmt.Println("Extract", url)
-				urls = append(urls, url)
-
-				if errExtract := extractRecruitmentTopCV(url); errExtract != nil {
-					fmt.Println(errExtract)
+				count, err := repo.FindByUrl(url, "recruitment_topcv")
+				if err != nil {
+					fmt.Println(err)
 				}
+				if count == 0 {
+					fmt.Println("Extract", url)
+					urls = append(urls, url)
 
+					if errExtract := extractRecruitmentTopCV(url, repo); errExtract != nil {
+						fmt.Println(errExtract)
+					}
+				} else {
+					fmt.Printf("Exists %s\n", url)
+				}
 			} else {
 				fmt.Println("Extract all url topcv", len(urls))
 				done <- true
@@ -55,25 +63,27 @@ func TopCV() {
 func GetUrlTopCV(pipe chan<- string, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
-	urls := []string{"https://www.topcv.vn/viec-lam/giam-doc-cong-nghe-cto/591969.html"}
-	for _, url := range urls {
-		pipe <- url
-	}
-	// for page := 1; page <= 1; page++ {
-	// 	url := fmt.Sprintf("%s%s?page=%d", topcvBasePath, topcvJobsPath, page)
-	// 	doc, err := common.GetNewDocument(url)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	doc.Find("h3.title a[href]").Each(func(index int, content *goquery.Selection) {
-	// 		href, _ := content.Attr("href")
-	// 		pipe <- href
-	// 	})
+	// urls := []string{"https://www.topcv.vn/viec-lam/giam-doc-cong-nghe-cto/591969.html"}
+	// for _, url := range urls {
+	// 	pipe <- url
 	// }
+	for page := 1; page <= 400; page++ {
+		url := fmt.Sprintf("%s%s?page=%d", topcvBasePath, topcvJobsPath, page)
+		doc, err := common.GetNewDocument(url)
+		if err != nil {
+			return err
+		}
+		doc.Find("h3.title a[href]").Each(func(index int, content *goquery.Selection) {
+			href, _ := content.Attr("href")
+			if !strings.Contains(href, "brand") {
+				pipe <- href
+			}
+		})
+	}
 	return nil
 }
 
-func extractRecruitmentTopCV(url string) error {
+func extractRecruitmentTopCV(url string, repo repository.Repository) error {
 	var recruitment models.Recruitment
 	recruitment.Url = common.RemoveCharacterInString(url, "?")
 
@@ -99,7 +109,7 @@ func extractRecruitmentTopCV(url string) error {
 
 		// job deadline
 		infoTitleHtml.Find("div.job-deadline").Each(func(indexTr int, jobDeadlineHtml *goquery.Selection) {
-			recruitment.JobDeadline = jobDeadlineHtml.Text()
+			recruitment.JobDeadline = strings.ReplaceAll(strings.ReplaceAll(jobDeadlineHtml.Text(), "\n", ""), "Hạn nộp hồ sơ:", "")
 		})
 	})
 
@@ -110,7 +120,7 @@ func extractRecruitmentTopCV(url string) error {
 			infoCommon = append(infoCommon, infoHtml.Text())
 		})
 	})
-	recruitment.Salary = infoCommon[0]
+	recruitment.Salary = strings.ReplaceAll(infoCommon[0], "\n", "")
 	recruitment.NumberRecruits = infoCommon[1]
 	recruitment.WorkForm = infoCommon[2]
 	recruitment.Rank = infoCommon[3]
@@ -124,8 +134,10 @@ func extractRecruitmentTopCV(url string) error {
 			infoLocation = append(infoLocation, addressHtml.Text())
 		})
 	})
-	recruitment.Location = infoLocation[0]
-	recruitment.Address = infoLocation[1]
+	recruitment.Location = strings.ReplaceAll(infoLocation[0], "- Khu vực:", "")
+	if len(infoLocation) == 2 {
+		recruitment.Address = strings.ReplaceAll(strings.ReplaceAll(infoLocation[1], "\n", ""), "-", "")
+	}
 
 	infoJobKeyword := make([]string, 0)
 	infoSkillKeyword := make([]string, 0)
@@ -146,11 +158,17 @@ func extractRecruitmentTopCV(url string) error {
 	// job descript
 	infoJobDescript := make([]string, 0)
 	doc.Find("div.job-data").Each(func(index int, jobDescriptHtml *goquery.Selection) {
-		jobDescriptHtml.Find("div.content-tab p span").Each(func(indexTr int, desciptHtml *goquery.Selection) {
+		jobDescriptHtml.Find("div.content-tab p").Each(func(indexTr int, desciptHtml *goquery.Selection) {
 			infoJobDescript = append(infoJobDescript, desciptHtml.Text())
 		})
 	})
-	recruitment.Descript = infoJobDescript[0]
+	recruitment.Descript = strings.Join(infoJobDescript, "")
+
+	// Save in to mongodb
+	errSave := repo.Save(recruitment, "recruitment_topcv")
+	if errSave != nil {
+		fmt.Println(errSave)
+	}
 
 	return nil
 }
