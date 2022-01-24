@@ -1,20 +1,21 @@
 package main
 
 import (
-	"go-crawl/database"
+	// "go-crawl/database"
 	"go-crawl/feeds"
 	"go-crawl/handle"
-	repoimpl "go-crawl/repository/repo_impl"
+
+	// repoimpl "go-crawl/repository/repo_impl"
 	"time"
 )
 
 func main() {
-	mg := &database.Mongo{}
-	mg.CreateConn()
+	// mg := &database.Mongo{}
+	// mg.CreateConn()
 
-	handle := handle.Handle{
-		Repo: repoimpl.NewRepo(mg),
-	}
+	// handle := handle.Handle{
+	// 	Repo: repoimpl.NewRepo(mg),
+	// }
 
 	// var wg sync.WaitGroup
 	// wg.Add(2)
@@ -31,11 +32,12 @@ func main() {
 
 	// wg.Wait()
 
-	feeds.ItViec(handle.Repo)
+	// feeds.ItViec(handle.Repo)
 
+	feeds.TopCV()
 	// Schedule crawl
-	go schedule(24*time.Hour, handle, 1)
-	schedule(48*time.Hour, handle, 2)
+	// go schedule(24*time.Hour, handle, 1)
+	// schedule(48*time.Hour, handle, 2)
 }
 
 func schedule(timeSchedule time.Duration, handle handle.Handle, inndex int) {
