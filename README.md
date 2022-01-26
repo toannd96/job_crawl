@@ -1,4 +1,9 @@
 ### Crawl info recruitment news, job, company,.... use goquery, chromedp (coming), goroutine and channel, save data in to mongodb.
+- Tiêu chí:
+* [x]  Thu thập hết dữ liệu từ nguồn
+* [x]  Lập lịch tự động
+* [x]  Data không bị duplicate
+
 - Topcv
 ```
 {
