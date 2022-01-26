@@ -29,17 +29,11 @@ func JobStreet(repo repository.Repository) {
 		for {
 			url, more := <-pipe
 			if more {
-				count, err := repo.FindByUrl(url, "recruitment_jobstreet")
-				if err != nil {
-					fmt.Println(err)
+				fmt.Println("Visit", url)
+				if errExtract := extractRecruitmentJobStreet(url, repo); errExtract != nil {
+					fmt.Println(errExtract)
 				}
-				if count == 0 {
-					if errExtract := extractRecruitmentJobStreet(url, repo); errExtract != nil {
-						fmt.Println(errExtract)
-					}
-				} else {
-					fmt.Printf("Exists %s\n", url)
-				}
+
 			} else {
 				fmt.Println("Extract all url jobstreet")
 				done <- true
@@ -66,33 +60,40 @@ func extractRecruitmentJobStreet(url string, repo repository.Repository) error {
 	c := colly.NewCollector()
 	c.SetRequestTimeout(120 * time.Second)
 
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Extract", r.URL)
-	})
-
 	c.OnError(func(r *colly.Response, err error) {
 		fmt.Println(err)
 	})
 
 	c.OnHTML(".jobresults .job-card", func(e *colly.HTMLElement) {
 		urlChild := fmt.Sprintf("%s%s", jobStreetBasePath, e.ChildAttr("h3.job-title > a", "href"))
-		recruitment.Url = common.RemoveCharacterInString(urlChild, "?")
-		recruitment.Title = e.ChildText("h3.job-title > a")
-		recruitment.Company = e.ChildText("span.job-company")
-		recruitment.Location = e.ChildText("span.job-location")
+		urlResult := common.RemoveCharacterInString(urlChild, "?")
 
-		c.Visit(e.Request.AbsoluteURL(recruitment.Url))
-		c.OnHTML("div[class=heading-xsmall]", func(e *colly.HTMLElement) {
-			recruitment.Site = e.ChildText("span.site")
-			recruitment.CreatedAt = e.ChildText("span.listed-date")
-		})
+		count, err := repo.FindByUrl(urlResult, "recruitment_jobstreet")
+		if err != nil {
+			fmt.Println(err)
+		}
+		if count == 0 {
+			fmt.Println("Extract", urlResult)
+			recruitment.Url = urlResult
+			recruitment.Title = e.ChildText("h3.job-title > a")
+			recruitment.Company = e.ChildText("span.job-company")
+			recruitment.Location = e.ChildText("span.job-location")
 
-		if recruitment.Site == "TopCV" {
-			recruitment.Descript = ""
-		} else {
-			c.OnHTML("div[class=-desktop-no-padding-top]", func(e *colly.HTMLElement) {
-				recruitment.Descript = e.Text
+			c.Visit(e.Request.AbsoluteURL(recruitment.Url))
+			c.OnHTML("div[class=heading-xsmall]", func(e *colly.HTMLElement) {
+				recruitment.Site = e.ChildText("span.site")
+				recruitment.CreatedAt = e.ChildText("span.listed-date")
 			})
+
+			if recruitment.Site == "TopCV" {
+				recruitment.Descript = ""
+			} else {
+				c.OnHTML("div[class=-desktop-no-padding-top]", func(e *colly.HTMLElement) {
+					recruitment.Descript = e.Text
+				})
+			}
+		} else {
+			fmt.Printf("Exists %s\n", urlResult)
 		}
 
 		// Save in to mongodb
