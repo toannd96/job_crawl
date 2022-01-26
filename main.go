@@ -38,9 +38,9 @@ func main() {
 	wg.Wait()
 
 	// Schedule crawl
-	go schedule(24*time.Hour, handle, 1)
-	schedule(48*time.Hour, handle, 2)
-	schedule(24*time.Hour, handle, 3)
+	go schedule(6*time.Hour, handle, 1)
+	schedule(24*time.Hour, handle, 2)
+	schedule(30*time.Minute, handle, 3)
 }
 
 func schedule(timeSchedule time.Duration, handle handle.Handle, inndex int) {
