@@ -2,7 +2,7 @@
 - Tiêu chí:
 * [x]  Thu thập hết dữ liệu từ nguồn
 * [x]  Lập lịch tự động
-* [x]  Data không bị duplicate
+* [x]  Dữ liệu thu thập không bị trùng lặp
 
 - Topcv
 ```
