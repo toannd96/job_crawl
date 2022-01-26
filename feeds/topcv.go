@@ -17,8 +17,6 @@ const (
 )
 
 func TopCV(repo repository.Repository) {
-	var urls []string
-
 	pipe := make(chan string)
 	done := make(chan bool)
 
@@ -32,7 +30,6 @@ func TopCV(repo repository.Repository) {
 				}
 				if count == 0 {
 					fmt.Println("Extract", url)
-					urls = append(urls, url)
 
 					if errExtract := extractRecruitmentTopCV(url, repo); errExtract != nil {
 						fmt.Println(errExtract)
@@ -41,7 +38,7 @@ func TopCV(repo repository.Repository) {
 					fmt.Printf("Exists %s\n", url)
 				}
 			} else {
-				fmt.Println("Extract all url topcv", len(urls))
+				fmt.Println("Extract all url topcv")
 				done <- true
 				return
 			}
@@ -63,20 +60,17 @@ func TopCV(repo repository.Repository) {
 func GetUrlTopCV(pipe chan<- string, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
-	// urls := []string{"https://www.topcv.vn/viec-lam/giam-doc-cong-nghe-cto/591969.html"}
-	// for _, url := range urls {
-	// 	pipe <- url
-	// }
 	for page := 1; page <= 400; page++ {
 		url := fmt.Sprintf("%s%s?page=%d", topcvBasePath, topcvJobsPath, page)
+		fmt.Println(url)
 		doc, err := common.GetNewDocument(url)
 		if err != nil {
 			return err
 		}
 		doc.Find("h3.title a[href]").Each(func(index int, content *goquery.Selection) {
 			href, _ := content.Attr("href")
-			if !strings.Contains(href, "brand") {
-				pipe <- href
+			if !strings.Contains(href, "brand") && !strings.Contains(href, "26-tuoi") {
+				pipe <- common.RemoveCharacterInString(href, "?")
 			}
 		})
 	}
@@ -85,7 +79,7 @@ func GetUrlTopCV(pipe chan<- string, wg *sync.WaitGroup) error {
 
 func extractRecruitmentTopCV(url string, repo repository.Repository) error {
 	var recruitment models.Recruitment
-	recruitment.Url = common.RemoveCharacterInString(url, "?")
+	recruitment.Url = url
 
 	doc, err := common.GetNewDocument(url)
 	if err != nil {
