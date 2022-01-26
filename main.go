@@ -39,7 +39,7 @@ func main() {
 
 	// Schedule crawl
 	go schedule(6*time.Hour, handle, 1)
-	schedule(24*time.Hour, handle, 2)
+	go schedule(24*time.Hour, handle, 2)
 	schedule(30*time.Minute, handle, 3)
 }
 
