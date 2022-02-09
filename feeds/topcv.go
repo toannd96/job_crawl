@@ -130,7 +130,7 @@ func extractRecruitmentTopCV(url string, repo repository.Repository) error {
 	})
 	recruitment.Location = strings.ReplaceAll(infoLocation[0], "- Khu vực:", "")
 	if len(infoLocation) == 2 {
-		recruitment.Address = strings.ReplaceAll(strings.ReplaceAll(infoLocation[1], "\n", ""), "-", "")
+		recruitment.Address = append(recruitment.Address, strings.ReplaceAll(strings.ReplaceAll(infoLocation[1], "\n", ""), "-", ""))
 	}
 
 	infoJobKeyword := make([]string, 0)
