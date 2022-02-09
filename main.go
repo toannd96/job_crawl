@@ -18,7 +18,7 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 
 	go func() {
 		defer wg.Done()
@@ -34,13 +34,19 @@ func main() {
 		defer wg.Done()
 		feeds.TopCV(handle.Repo)
 	}()
+	
+	go func() {
+		defer wg.Done()
+		feeds.ItViec(handle.Repo)
+	}()
 
 	wg.Wait()
 
 	// Schedule crawl
 	go schedule(6*time.Hour, handle, 1)
 	go schedule(24*time.Hour, handle, 2)
-	schedule(30*time.Minute, handle, 3)
+	go schedule(30*time.Minute, handle, 3)
+	schedule(60*time.Minute, handle, 4)
 }
 
 func schedule(timeSchedule time.Duration, handle handle.Handle, inndex int) {
@@ -57,6 +63,9 @@ func schedule(timeSchedule time.Duration, handle handle.Handle, inndex int) {
 			case 3:
 				<-ticker.C
 				feeds.TopCV(handle.Repo)
+			case 4:
+				<-ticker.C
+				feeds.ItViec(handle.Repo)
 			}
 		}
 	}()
