@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go-crawl/common"
+	"go-crawl/models"
 	"go-crawl/repository"
 
 	"github.com/PuerkitoBio/goquery"
@@ -18,17 +19,18 @@ import (
 )
 
 const (
+	googleSignin = "https://accounts.google.com"
+
 	itviecBasePath = "https://itviec.com"
 	itviecJobsPath = "/it-jobs"
 	itviecSignin   = "/sign_in"
-
-	googleSignin = "https://accounts.google.com"
 )
 
 func loginTask() (context.Context, context.CancelFunc) {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", false),
-		chromedp.Flag("disable-gpu", false),
+		chromedp.Flag("start-fullscreen", true),
+
 		chromedp.Flag("enable-automation", false),
 		chromedp.Flag("disable-extensions", false),
 		chromedp.Flag("remote-debugging-port", "9222"),
@@ -36,18 +38,16 @@ func loginTask() (context.Context, context.CancelFunc) {
 	allocCtx, _ := chromedp.NewExecAllocator(context.Background(), opts...)
 	ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
 
-	// Login google
+	// login google
 	googleTask(ctx)
 
-	// Login itviec
-	itviecTask(ctx)
+	// login itviec with google
+	itviecWithGoogleTask(ctx)
 
 	return ctx, cancel
 }
 
 func ItViec(repo repository.Repository) {
-	// var urls []string
-
 	ctx, cancel := loginTask()
 
 	pipe := make(chan string)
@@ -63,16 +63,15 @@ func ItViec(repo repository.Repository) {
 				}
 				if count == 0 {
 					fmt.Println("Extract", url)
-					// urls = append(urls, url)
 
-					if errExtract := ExtractRecruitmentTask(ctx, url, repo); errExtract != nil {
+					if errExtract := ExtractItviecTask(ctx, url, repo); errExtract != nil {
 						fmt.Println(errExtract)
 					}
 				} else {
 					fmt.Printf("Exists %s\n", url)
 				}
 			} else {
-				// fmt.Println("Extract all url itviec", len(urls))
+				fmt.Println("Extract all url itviec")
 				cancel()
 				done <- true
 				return
@@ -114,37 +113,30 @@ func getTotalPageItViec() (int, error) {
 func getUrlItViec(pipe chan<- string, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
-	// totalPage, err := getTotalPageItViec()
-	// if err != nil {
-	// 	return err
-	// }
-
-	urls := []string{
-		"https://itviec.com/it-jobs/backend-developer-java-spring-mysql-ftech-co-ltd-0345",
-		"https://itviec.com/it-jobs/devops-engineer-ci-cd-engineer-forix-4048",
+	totalPage, err := getTotalPageItViec()
+	if err != nil {
+		return err
 	}
 
-	for _, url := range urls {
-		pipe <- url
-
-		// for page := 1; page <= 1; page++ {
-		// 	url := fmt.Sprintf("%s%s?page=%d", itViecBasePath, itViecJobsPath, page)
-		// 	doc, err := common.GetNewDocument(url)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	doc.Find("h3.title a[href]").Each(func(index int, content *goquery.Selection) {
-		// 		href, _ := content.Attr("href")
-		// 		urlRecruitment := common.RemoveCharacterInString(fmt.Sprintf("%s%s", itViecBasePath, href), "?")
-		// 		pipe <- urlRecruitment
-		// 	})
-		// }
+	for page := 1; page <= totalPage; page++ {
+		url := fmt.Sprintf("%s%s?page=%d", itviecBasePath, itviecJobsPath, page)
+		doc, err := common.GetNewDocument(url)
+		if err != nil {
+			return err
+		}
+		doc.Find("h3.title a[href]").Each(func(index int, content *goquery.Selection) {
+			href, _ := content.Attr("href")
+			urlRecruitment := common.RemoveCharacterInString(fmt.Sprintf("%s%s", itviecBasePath, href), "?")
+			pipe <- urlRecruitment
+		})
 	}
+
 	return nil
 }
 
-func ExtractRecruitmentTask(ctx context.Context, url string, repo repository.Repository) error {
-	// var recruitment models.Recruitment
+func ExtractItviecTask(ctx context.Context, url string, repo repository.Repository) error {
+	var recruitment models.Recruitment
+	recruitment.Url = url
 
 	task := chromedp.Tasks{
 		chromedp.Navigate(url),
@@ -162,59 +154,76 @@ func ExtractRecruitmentTask(ctx context.Context, url string, repo repository.Rep
 				return err
 			}
 
-			doc.Find("div.job-details__overview div.svg-icon__text").Each(func(index int, info *goquery.Selection) {
-				salary := info.Text()
-				fmt.Println(salary)
+			doc.Find("div.job-details").Each(func(index int, body *goquery.Selection) {
+
+				// title
+				body.Find("h1.job-details__title").Each(func(index int, title *goquery.Selection) {
+					recruitment.Title = title.Text()
+				})
+
+				// company
+				body.Find("div.job-details__sub-title").Each(func(index int, company *goquery.Selection) {
+					recruitment.Company = company.Text()
+				})
+
+				// skill
+				body.Find("div.job-details__tag-list a.mkt-track span").Each(func(index int, skillKeyword *goquery.Selection) {
+					recruitment.SkillKeyword = append(recruitment.SkillKeyword, skillKeyword.Text())
+				})
+
+				body.Find("div.job-details__overview div.svg-icon__text").Each(func(index int, info *goquery.Selection) {
+					// salary
+					recruitment.Salary = strings.Split(info.Text(), "\n")[0]
+					fmt.Println(recruitment.Salary)
+
+					info.Find("span").Each(func(index int, address *goquery.Selection) {
+						if len(strings.Split(address.Text(), "\n")) == 2 {
+							// address
+							recruitment.Address = append(recruitment.Address, strings.Split(address.Text(), "\n")[0], strings.Split(address.Text(), "\n")[1])
+						} else {
+							// address
+							recruitment.Address = append(recruitment.Address, strings.Split(address.Text(), "\n")[0])
+						}
+					})
+
+				})
+
+				infoJobDescript := make([]string, 0)
+				body.Find("div.job-details__paragraph ul li").Each(func(index int, details *goquery.Selection) {
+					infoJobDescript = append(infoJobDescript, details.Text())
+				})
+
+				recruitment.Descript = strings.Join(infoJobDescript, "\n")
 			})
 
+			// Save in to mongodb
+			errSave := repo.Save(recruitment, "recruitment_itviec")
+			if errSave != nil {
+				fmt.Println(errSave)
+			}
+			
 			return nil
 		}),
 	}
 
 	if err := chromedp.Run(ctx, task); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 	return nil
 }
 
-func itviecTask(ctx context.Context) {
+func itviecWithGoogleTask(ctx context.Context) {
 	url := fmt.Sprintf("%s%s", itviecBasePath, itviecSignin)
+
 	task := chromedp.Tasks{
 		chromedp.Navigate(url),
-		chromedp.Sleep(3 * time.Second),
+		chromedp.Sleep(2 * time.Second),
 	}
 
 	if err := chromedp.Run(ctx, task); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 }
-
-// Login with email
-// func itviecTask(ctx context.Context) {
-// 	url := fmt.Sprintf("%s%s", itviecBasePath, itviecSignin)
-// 	email := "//*[@id='user_email']"
-// 	password := "//*[@id='user_password']"
-// 	label := "//*[@id='container']/div[2]/div/div[2]/form/div[4]/div/div/div/iframe"
-// 	button := "//*[@id='container']/div[2]/div/div[2]/form/div[5]/div/button"
-// 	task := chromedp.Tasks{
-// 		chromedp.Navigate(url),
-
-// 		chromedp.SendKeys(email, ""),
-// 		chromedp.Sleep(3 * time.Second),
-
-// 		chromedp.SendKeys(password, ""),
-// 		chromedp.Sleep(3 * time.Second),
-
-// 		chromedp.Click(label),
-// 		chromedp.Sleep(5 * time.Second),
-
-// 		chromedp.Click(button),
-// 	}
-
-// 	if err := chromedp.Run(ctx, task); err != nil {
-// 		log.Fatal(err)
-// 	}
-// }
 
 func googleTask(ctx context.Context) {
 	email := "//*[@id='identifierId']"
@@ -225,18 +234,19 @@ func googleTask(ctx context.Context) {
 	task := chromedp.Tasks{
 		chromedp.Navigate(googleSignin),
 		chromedp.SendKeys(email, ""),
-		chromedp.Sleep(3 * time.Second),
+		chromedp.Sleep(2 * time.Second),
 
 		chromedp.Click(buttonEmailNext),
-		chromedp.Sleep(3 * time.Second),
+		chromedp.Sleep(2 * time.Second),
 
 		chromedp.SendKeys(password, ""),
-		chromedp.Sleep(3 * time.Second),
+		chromedp.Sleep(2 * time.Second),
 
 		chromedp.Click(buttonPasswordNext),
+		chromedp.Sleep(3 * time.Second),
 	}
 
 	if err := chromedp.Run(ctx, task); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 }
