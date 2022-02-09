@@ -12,7 +12,7 @@ type Recruitment struct {
 	Rank           string        `bson:"rank,omitempty"`
 	Experience     string        `bson:"experience,omitempty"`
 	Location       string        `bson:"location,omitempty"`
-	Address        string        `bson:"address,omitempty"`
+	Address        []string        `bson:"address,omitempty"`
 	JobKeyword     []string      `bson:"job_keyword,omitempty"`
 	SkillKeyword   []string      `bson:"skill_keyword,omitempty"`
 	Descript       string        `bson:"descript,omitempty"`
