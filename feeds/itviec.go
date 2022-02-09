@@ -29,7 +29,7 @@ const (
 func loginTask() (context.Context, context.CancelFunc) {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", false),
-		chromedp.Flag("start-fullscreen", true),
+		// chromedp.Flag("start-fullscreen", true),
 
 		chromedp.Flag("enable-automation", false),
 		chromedp.Flag("disable-extensions", false),
@@ -163,7 +163,7 @@ func ExtractItviecTask(ctx context.Context, url string, repo repository.Reposito
 
 				// company
 				body.Find("div.job-details__sub-title").Each(func(index int, company *goquery.Selection) {
-					recruitment.Company = company.Text()
+					recruitment.Company = common.RemoveCharacterInString(company.Text(), "\n")
 				})
 
 				// skill
@@ -171,21 +171,20 @@ func ExtractItviecTask(ctx context.Context, url string, repo repository.Reposito
 					recruitment.SkillKeyword = append(recruitment.SkillKeyword, skillKeyword.Text())
 				})
 
+				body.Find("div.job-details__overview div.svg-icon__text span").Each(func(index int, address *goquery.Selection) {
+					if len(strings.Split(address.Text(), "\n")) == 2 {
+						// address
+						recruitment.Address = append(recruitment.Address, strings.Split(address.Text(), "\n")[0], strings.Split(address.Text(), "\n")[1])
+					} else {
+						// address
+						recruitment.Address = append(recruitment.Address, strings.Split(address.Text(), "\n")[0])
+					}
+
+				})
+
 				body.Find("div.job-details__overview div.svg-icon__text").Each(func(index int, info *goquery.Selection) {
 					// salary
 					recruitment.Salary = strings.Split(info.Text(), "\n")[0]
-					fmt.Println(recruitment.Salary)
-
-					info.Find("span").Each(func(index int, address *goquery.Selection) {
-						if len(strings.Split(address.Text(), "\n")) == 2 {
-							// address
-							recruitment.Address = append(recruitment.Address, strings.Split(address.Text(), "\n")[0], strings.Split(address.Text(), "\n")[1])
-						} else {
-							// address
-							recruitment.Address = append(recruitment.Address, strings.Split(address.Text(), "\n")[0])
-						}
-					})
-
 				})
 
 				infoJobDescript := make([]string, 0)
@@ -196,12 +195,12 @@ func ExtractItviecTask(ctx context.Context, url string, repo repository.Reposito
 				recruitment.Descript = strings.Join(infoJobDescript, "\n")
 			})
 
-			// Save in to mongodb
+			// save in to mongodb
 			errSave := repo.Save(recruitment, "recruitment_itviec")
 			if errSave != nil {
 				fmt.Println(errSave)
 			}
-			
+
 			return nil
 		}),
 	}
